@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cognito Workshop</title>
+</head>
+<body>
+  <!-- load scripts -->
+  <script src="js/amazon-cognito-identity.min.js"></script>
+  <script src="js/register.js"></script>
+
+  <!-- Navigation Bar -->
+  <nav>
+    <a href="index.html">home</a>
+    <a href="login.html">login</a>
+    <a href="register.html">register</a>
+    <a href="upload.html">upload</a>
+  </nav>
+
+  <!-- Main title -->
+  <h1>Register</h1>
+
+  <!-- login box -->
+  <div class="signup-box">
+    <div class="input-box">
+      <label> username
+        <input type="text" name="username" id="username">
+      </label>
+    </div>
+    <div class="input-box">
+      <label> password
+        <input type="password" name="password" id="password">
+      </label>
+    </div>
+    <div class="input-box">
+      <label> password-confirm
+        <input type="password" name="password-confirm" id="password-confirm">
+      </label>
+    </div>
+    <div class="input-box">
+      <label> email
+        <input type="email" name="email" id="email">
+      </label>
+    </div>
+    <div class="input-box">
+      <label> phoneNumber
+        <input type="tel" name="phonenumber" id="phonenumber">
+      </label>
+    </div>
+    <button onclick="signUp()">register</button>
+  </div>
+</body>
+</html>
