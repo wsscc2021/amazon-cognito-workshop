@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cognito Workshop</title>
+</head>
+<body>
+  <!-- load scripts -->
+  <script src="js/amazon-cognito-identity.min.js"></script>
+  <script src="js/aws-sdk.min.js"></script>
+  <script src="js/download.js"></script>
+  
+  <!-- Navigation Bar -->
+  <nav>
+    <a href="index.html">home</a>
+    <a href="login.html">login</a>
+    <a href="register.html">register</a>
+    <a href="upload.html">upload</a>
+    <a href="download.html">download</a>
+  </nav>
+
+  <!-- Main title -->
+  <h1>Download</h1>
+
+  <!-- download box -->
+  <button onclick="listObjects()">refresh</button>
+  <div id="content"></div>
+</body>
+</html>
