@@ -37,29 +37,48 @@ function upload() {
 
       let files = document.getElementById("file").files;
       let file = files[0];
-      let objectKey = "prefix/" + file.name;
-
-      // Use S3 ManagedUpload class as it supports multipart uploads
-      var managedUpload = new AWS.S3.ManagedUpload({
-        params: {
-          Bucket: BUCKET_NAME,
-          Key: objectKey,
-          Body: file
-        }
-      });
+      var objectKey = undefined;
+      var tags = [];
       
-      var promise = managedUpload.promise();
-
-      promise.then(
-        function(data) {
-          alert("Successfully uploaded.");
-          location.href = "gallery.html"
-        },
-        function(err) {
-          console.log(err);
-          return alert("There was an error uploading your file: ", err.message);
+      cognitoUser.getUserAttributes(function(err, result) {
+        if (err) {
+          alert(err.message || JSON.stringify(err));
+          return;
         }
-      );
+        for (i=0; result.length>i; i++) {
+          let key = result[i].getName();
+          let value = result[i].getValue();
+          switch (key) {
+            case "sub":
+              objectKey = value + "/" + file.name;
+              tags.push(`${key}=${value}`);
+              break;
+          }
+        }
+        
+        // Use S3 ManagedUpload class as it supports multipart uploads
+        var managedUpload = new AWS.S3.ManagedUpload({
+          params: {
+            Bucket: BUCKET_NAME,
+            Key: objectKey,
+            Body: file,
+            Tagging: tags.join('&')
+          }
+        });
+        
+        var promise = managedUpload.promise();
+
+        promise.then(
+          function(data) {
+            alert("Successfully uploaded.");
+            location.href = "download.html"
+          },
+          function(err) {
+            console.log(err);
+            return alert("There was an error uploading your file: ", err.message);
+          }
+        );
+      });
     });
   }
 }
