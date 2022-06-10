@@ -1,0 +1,270 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  GoogleClientID:
+    Description: xxxx-xxxx.apps.googleusercontent.com
+    Type: String
+
+Resources:
+  # S3 Bucket - for app storage
+  AppStorageBucket:
+    Type: AWS::S3::Bucket
+    Properties: 
+      # BucketName: useast1-example-app-storage-bucket
+      ObjectLockEnabled: false
+      OwnershipControls: 
+        Rules: 
+          - ObjectOwnership: BucketOwnerEnforced # BucketOwnerEnforced , ObjectWriter , BucketOwnerPreferred
+      PublicAccessBlockConfiguration: 
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption: 
+        ServerSideEncryptionConfiguration: 
+          - BucketKeyEnabled: true
+            ServerSideEncryptionByDefault: 
+              SSEAlgorithm: aws:kms # AES256 , aws:kms
+              # KMSMasterKeyID: !GetAtt Key.Arn
+      VersioningConfiguration: 
+        Status: Enabled # Enabled , Suspended
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - '*'
+            AllowedMethods:
+              - HEAD
+              - GET
+              - PUT
+              - POST
+              - DELETE
+            AllowedOrigins:
+              - '*'
+            ExposedHeaders:
+              - ETag
+
+  # S3 Bucket - for static contents
+  WebStaticContentsBucket:
+    Type: AWS::S3::Bucket
+    Properties: 
+      # BucketName: useast1-example-app-storage-bucket
+      ObjectLockEnabled: false
+      OwnershipControls: 
+        Rules: 
+          - ObjectOwnership: BucketOwnerEnforced # BucketOwnerEnforced , ObjectWriter , BucketOwnerPreferred
+      PublicAccessBlockConfiguration: 
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption: 
+        ServerSideEncryptionConfiguration: 
+          - BucketKeyEnabled: true
+            ServerSideEncryptionByDefault: 
+              SSEAlgorithm: AES256 # AES256 , aws:kms
+              # KMSMasterKeyID: !GetAtt Key.Arn
+      VersioningConfiguration: 
+        Status: Enabled # Enabled , Suspended
+  
+  # CloudFront - OAI
+  OAI:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties: 
+      CloudFrontOriginAccessIdentityConfig: 
+        Comment: !GetAtt WebStaticContentsBucket.DomainName
+  
+  #
+  # CloudFront - Distribution
+  #
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties: 
+      DistributionConfig: 
+        Origins: 
+          - Id: S3Origin
+            DomainName: !GetAtt WebStaticContentsBucket.DomainName
+            OriginShield: 
+              Enabled: true
+              OriginShieldRegion: !Ref AWS::Region
+            S3OriginConfig: 
+              OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${OAI}
+        DefaultCacheBehavior: 
+          AllowedMethods: # GET, HEAD, OPTIONS, PUT, PATCH, POST, DELETE 
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods: # GET, HEAD, OPTIONS
+            - GET
+            - HEAD
+            - OPTIONS
+          # https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/using-managed-cache-policies.html
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+          Compress: true
+          ForwardedValues: 
+            QueryString: false
+            Cookies:
+              Forward: none
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https # allow-all | https-only | redirect-to-https
+        DefaultRootObject: index.html
+        Enabled: true
+        HttpVersion: http2 # http1.1 | http2
+        IPV6Enabled: false
+        PriceClass: PriceClass_All # PriceClass_100 | PriceClass_200 | PriceClass_All
+        # Logging: 
+        #   Logging
+        # OriginGroups: 
+        #   Items: 
+        #     - OriginGroup
+        #   Quantity: Integer
+        # WebACLId: String
+      Tags: 
+        - Key: key01
+          Value: value01
+
+  # Cognito - User Pool
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: cognito-user-pool
+      UsernameConfiguration: 
+        CaseSensitive: false
+      AutoVerifiedAttributes:
+        - email
+      VerificationMessageTemplate:
+        DefaultEmailOption: CONFIRM_WITH_LINK
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Mutable: false
+          Required: true
+
+  # Cognito - User Pool Domain
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties: 
+      Domain: 'wsscc2021'
+      UserPoolId: !Ref UserPool
+
+  # Creates a User Pool Client to be used by the identity pool
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: cognito-app-client
+      GenerateSecret: false
+      UserPoolId: !Ref UserPool
+
+  # Creates a federeated Identity pool
+  IdentityPool:
+    Type: AWS::Cognito::IdentityPool
+    Properties:
+      IdentityPoolName: cognito-identity-pool
+      AllowUnauthenticatedIdentities: true
+      CognitoIdentityProviders: 
+        - ClientId: !Ref UserPoolClient
+          ProviderName: !GetAtt UserPool.ProviderName
+      SupportedLoginProviders:
+        accounts.google.com: !Ref GoogleClientID
+
+  # Create a role for unauthorized acces to AWS resources. Very limited access. Only allows users in the previously created Identity Pool
+  CognitoUnAuthorizedRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument: 
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal: 
+              Federated: "cognito-identity.amazonaws.com"
+            Action: 
+              - "sts:AssumeRoleWithWebIdentity"
+            Condition:
+              StringEquals: 
+                "cognito-identity.amazonaws.com:aud": !Ref IdentityPool
+              "ForAnyValue:StringLike":
+                "cognito-identity.amazonaws.com:amr": unauthenticated
+      Policies:
+        - PolicyName: "CognitoUnauthorizedPolicy"
+          PolicyDocument: 
+            Version: "2012-10-17"
+            Statement: 
+              - Effect: "Allow"
+                Action:
+                  - "mobileanalytics:PutEvents"
+                  - "cognito-sync:*"
+                Resource: "*"
+
+  # Create a role for authorized acces to AWS resources. Control what your user can access. This example only allows Lambda invokation
+  # Only allows users in the previously created Identity Pool
+  CognitoAuthorizedRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument: 
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal: 
+              Federated: "cognito-identity.amazonaws.com"
+            Action: 
+              - "sts:AssumeRoleWithWebIdentity"
+              - "sts:TagSession"
+            Condition:
+              StringEquals: 
+                "cognito-identity.amazonaws.com:aud": !Ref IdentityPool
+              "ForAnyValue:StringLike":
+                "cognito-identity.amazonaws.com:amr": authenticated
+      Policies:
+        - PolicyName: "CognitoAuthorizedPolicy"
+          PolicyDocument: 
+            Version: "2012-10-17"
+            Statement: 
+              - Effect: "Allow"
+                Action:
+                  - "mobileanalytics:PutEvents"
+                  - "cognito-sync:*"
+                  - "cognito-identity:*"
+                Resource: "*"
+              - Effect: "Allow"
+                Action:
+                  - "s3:GetObject*"
+                Resource: !Sub "${AppStorageBucket.Arn}/*"
+                Condition:
+                  StringEquals:
+                    "s3:ExistingObjectTag/sub": "${aws:PrincipalTag/sub}"
+              - Effect: "Allow"
+                Action:
+                  - "s3:PutObject*"
+                Resource: !Sub "${AppStorageBucket.Arn}/*"
+              - Effect: "Allow"
+                Action:
+                  - "s3:List*"
+                Resource: !GetAtt AppStorageBucket.Arn
+
+  # Assigns the roles to the Identity Pool
+  IdentityPoolRoleMapping:
+    Type: AWS::Cognito::IdentityPoolRoleAttachment
+    Properties:
+      IdentityPoolId: !Ref IdentityPool
+      Roles:
+        authenticated: !GetAtt CognitoAuthorizedRole.Arn
+        unauthenticated: !GetAtt CognitoUnAuthorizedRole.Arn
+
+Outputs:
+  UserPoolId:
+    Description: "The Cognito User Pool ID"
+    Value: !Ref UserPool
+  UserPoolClientId:
+    Description: "The Cognito User Pool Client ID"
+    Value: !Ref UserPoolClient
+  IdentityPoolId:
+    Description: "The Cognito Identity Pool Client ID"
+    Value: !Ref IdentityPool
+  AppStorageBucket:
+    Description: "The Bucket for App Storage"
+    Value: !Ref AppStorageBucket
+  WebStaticContentsBucket:
+    Description: "The Bucket for Web Static Contents"
+    Value: !Ref WebStaticContentsBucket
+  CloudFrontDistributionDomain:
+    Description: "The Domain of Distribution of CloudFront"
+    Value: !Sub "https://${Distribution.DomainName}"
