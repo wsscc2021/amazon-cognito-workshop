@@ -17,11 +17,6 @@ function parseJWT(token) {
   }
 };
 
-function epochToLocaleString(epoch) {
-  var myDate = new Date(epoch*1000);
-  console.log(myDate.toLocaleString());
-};
-
 function create_userPool() {
   let userPool = new AmazonCognitoIdentity.CognitoUserPool({
     UserPoolId: USERPOOL_ID,
