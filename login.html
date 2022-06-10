@@ -40,6 +40,22 @@
   </div>
 
   <!-- To Do -->
-  <p>google login...</p>
+  <hr>
+  <script>
+    function handleCredentialResponse(response) {
+      // decodeJwtResponse() is a custom function defined by you
+      // to decode the credential response.
+      console.log(response.credential);
+      localStorage.setItem('google+', response.credential);
+      location.href = "upload.html";
+    }
+  </script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <div id="g_id_onload"
+        data-client_id="500298630865-qsnf0egkh4prldraggmri3mv9p7n5qrl.apps.googleusercontent.com"
+        data-callback="handleCredentialResponse">
+  </div>
+  <div class="g_id_signin" data-type="standard"></div>
+</html>
 </body>
 </html>
