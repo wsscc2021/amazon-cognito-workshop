@@ -1,9 +1,9 @@
 
-const AWS_REGION = 'us-east-1';
-const USERPOOL_ID = "us-east-1_nQcxl44OP";
-const CLIENT_ID = "68trdifrt2803vh285kb22rl0t";
-const IDENTITY_POOL_ID = "us-east-1:cdab67dd-2571-4741-85ce-f4e64faae15d";
-const BUCKET_NAME = "useast1-example-bucket";
+const AWS_REGION = '<YOUR REGION>';
+const USERPOOL_ID = "<YOUR USER POOL ID>";
+const CLIENT_ID = "<YOUR USER POOL CLIENT ID>";
+const IDENTITY_POOL_ID = "<YOUR IDENTITY POOL ID>";
+const BUCKET_NAME = "<YOUR BUCKET FOR APP STORAGE>";
 
 window.addEventListener('DOMContentLoaded', function() {
   currentSession();
