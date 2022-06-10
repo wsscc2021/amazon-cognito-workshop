@@ -42,6 +42,7 @@ function currentSession() {
       `<p id="sub">sub: ${attributes.sub}</p>`,
       `<p id="iss">iss: ${attributes.iss}</p>`,
       `<p id="exp">exp: ${exp}</p>`,
+      `<button onclick="signOut()">signOut</button>`,
     ]
     document.getElementById('user-profile').innerHTML = userProfileHTML.join('');
   };
@@ -81,4 +82,19 @@ function setCredential(idp,token) {
     default:
       return null;
   }
-}
+};
+
+function signOut() {
+  let userPool = create_userPool();
+  let cognitoUser = userPool.getCurrentUser();
+  let googleToken = localStorage.getItem('google+');
+
+  if (cognitoUser != null) {
+    cognitoUser.signOut();
+    location.reload();
+  }
+  if (googleToken != null) {
+    localStorage.removeItem('google+');
+    location.reload();
+  }
+};
