@@ -13,9 +13,18 @@ function create_userPool() {
   return userPool;
 };
 
+function parseJWT(token) {
+  try {
+    return JSON.parse(atob(token.split('.')[1]));
+  } catch (e) {
+    return null;
+  }
+};
+
 function upload() {
   let userPool = create_userPool();
   let cognitoUser = userPool.getCurrentUser();
+  let googleToken = localStorage.getItem('google+');
 
   if (cognitoUser != null) {
     cognitoUser.getSession(function(err,session) {
@@ -35,11 +44,6 @@ function upload() {
         },
       });
 
-      let files = document.getElementById("file").files;
-      let file = files[0];
-      var objectKey = undefined;
-      var tags = [];
-      
       cognitoUser.getUserAttributes(function(err, result) {
         if (err) {
           alert(err.message || JSON.stringify(err));
@@ -50,35 +54,57 @@ function upload() {
           let value = result[i].getValue();
           switch (key) {
             case "sub":
-              objectKey = value + "/" + file.name;
-              tags.push(`${key}=${value}`);
+              s3upload(AWS.config, value);
               break;
           }
         }
-        
-        // Use S3 ManagedUpload class as it supports multipart uploads
-        var managedUpload = new AWS.S3.ManagedUpload({
-          params: {
-            Bucket: BUCKET_NAME,
-            Key: objectKey,
-            Body: file,
-            Tagging: tags.join('&')
-          }
-        });
-        
-        var promise = managedUpload.promise();
-
-        promise.then(
-          function(data) {
-            alert("Successfully uploaded.");
-            location.href = "download.html"
-          },
-          function(err) {
-            console.log(err);
-            return alert("There was an error uploading your file: ", err.message);
-          }
-        );
       });
     });
+  } else if (googleToken != null) {
+    AWS.config.region = AWS_REGION;
+    AWS.config.credentials = new AWS.CognitoIdentityCredentials({
+      IdentityPoolId: IDENTITY_POOL_ID, // your identity pool id here
+      Logins: {
+        // Change the key below according to the specific region your user pool is in.
+        'accounts.google.com': googleToken,
+      },
+    });
+    
+    var attributes = parseJWT(googleToken);
+    
+    s3upload(AWS.config, attributes.sub);
   }
+}
+
+function s3upload(aws_config, sub) {
+  AWS.config = aws_config
+  let files = document.getElementById("file").files;
+  let file = files[0];
+  let objectKey = sub + "/" + file.name;
+  let tags = [
+    "sub=" + sub,
+  ]
+
+  // Use S3 ManagedUpload class as it supports multipart uploads
+  var managedUpload = new AWS.S3.ManagedUpload({
+    params: {
+      Bucket: BUCKET_NAME,
+      Key: objectKey,
+      Body: file,
+      Tagging: tags.join('&')
+    }
+  });
+
+  var promise = managedUpload.promise();
+
+  promise.then(
+    function(data) {
+      alert("Successfully uploaded.");
+      location.href = "download.html"
+    },
+    function(err) {
+      console.log(err);
+      return alert("There was an error uploading your file: ", err.message);
+    }
+  );
 }
