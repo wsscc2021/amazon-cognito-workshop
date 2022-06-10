@@ -1,12 +1,4 @@
 
-function create_userPool() {
-  let userPool = new AmazonCognitoIdentity.CognitoUserPool({
-    UserPoolId: "us-east-1_nQcxl44OP",
-    ClientId: "68trdifrt2803vh285kb22rl0t"
-  });
-  return userPool;
-};
-
 function signIn() {
   let userPool = create_userPool();
   let username = document.getElementById('username').value;
@@ -27,7 +19,7 @@ function signIn() {
       // var accessToken = result.getAccessToken().getJwtToken();
       // var idToken = result.getIdToken().getJwtToken();
       alert(`${username} login successfully`)
-      location.href="index.html";
+      location.href="upload.html";
     },
 
     onFailure: function(err) {

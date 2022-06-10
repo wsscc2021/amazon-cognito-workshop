@@ -1,29 +1,7 @@
 
-const AWS_REGION = 'us-east-1';
-const USERPOOL_ID = "us-east-1_nQcxl44OP";
-const CLIENT_ID = "68trdifrt2803vh285kb22rl0t";
-const IDENTITY_POOL_ID = "us-east-1:cdab67dd-2571-4741-85ce-f4e64faae15d";
-const BUCKET_NAME = "useast1-example-bucket";
-
 window.addEventListener('DOMContentLoaded', function() {
   listObjects();
 });
-
-function parseJWT(token) {
-  try {
-    return JSON.parse(atob(token.split('.')[1]));
-  } catch (e) {
-    return null;
-  }
-};
-
-function create_userPool() {
-  let userPool = new AmazonCognitoIdentity.CognitoUserPool({
-    UserPoolId: USERPOOL_ID,
-    ClientId: CLIENT_ID
-  });
-  return userPool;
-};
 
 function listObjects() {
   let userPool = create_userPool();
@@ -32,53 +10,14 @@ function listObjects() {
 
   if (cognitoUser != null) {
     cognitoUser.getSession(function(err,session) {
-      if (err) {
-        alert(err.message || JSON.stringify(err));
-        return;
-      }
-      
-      AWS.config.region = AWS_REGION;
-      AWS.config.credentials = new AWS.CognitoIdentityCredentials({
-        IdentityPoolId: IDENTITY_POOL_ID, // your identity pool id here
-        Logins: {
-          // Change the key below according to the specific region your user pool is in.
-          [`cognito-idp.${AWS_REGION}.amazonaws.com/${USERPOOL_ID}`]: session
-              .getIdToken()
-              .getJwtToken(),
-        },
-      });
-      
-      cognitoUser.getUserAttributes(function(err, result) {
-        if (err) {
-          alert(err.message || JSON.stringify(err));
-          return;
-        }
-        for (i=0; result.length>i; i++) {
-          let key = result[i].getName();
-          let value = result[i].getValue();
-          switch (key) {
-            case "sub":
-              s3ListObjectsV2(AWS.config, value);
-              break;
-          }
-        }
-      });
+      if (err) return alert(err.message || JSON.stringify(err));
+      let cognitoToken = session.getIdToken().getJwtToken();
+      setCredential('cognito',cognitoToken);
+      s3ListObjectsV2(cognitoToken);
     });
   } else if (googleToken != null) {
-    AWS.config.region = AWS_REGION;
-    AWS.config.credentials = new AWS.CognitoIdentityCredentials({
-      IdentityPoolId: IDENTITY_POOL_ID, // your identity pool id here
-      Logins: {
-        // Change the key below according to the specific region your user pool is in.
-        'accounts.google.com': googleToken,
-      },
-    });
-
-    var attributes = parseJWT(googleToken);
-
-    console.log(attributes);
-
-    s3ListObjectsV2(AWS.config, attributes.sub);
+    setCredential('google+',googleToken);
+    s3ListObjectsV2(googleToken);
   }
 }
 
@@ -89,53 +28,29 @@ function download(objectKey) {
 
   if (cognitoUser != null) {
     cognitoUser.getSession(function(err,session) {
-      if (err) {
-        alert(err.message || JSON.stringify(err));
-        return;
-      }
-      
-      AWS.config.region = AWS_REGION;
-      AWS.config.credentials = new AWS.CognitoIdentityCredentials({
-        IdentityPoolId: IDENTITY_POOL_ID, // your identity pool id here
-        Logins: {
-          // Change the key below according to the specific region your user pool is in.
-          [`cognito-idp.${AWS_REGION}.amazonaws.com/${USERPOOL_ID}`]: session
-              .getIdToken()
-              .getJwtToken(),
-        },
-      });
-
-      s3GetObject(AWS.config, objectKey);
+      if (err) return alert(err.message || JSON.stringify(err));
+      let cognitoToken = session.getIdToken().getJwtToken();
+      setCredential('cognito',cognitoToken);
+      s3GetObject(objectKey);
     });
   } else if (googleToken != null) {
-    AWS.config.region = AWS_REGION;
-    AWS.config.credentials = new AWS.CognitoIdentityCredentials({
-      IdentityPoolId: IDENTITY_POOL_ID, // your identity pool id here
-      Logins: {
-        // Change the key below according to the specific region your user pool is in.
-        'accounts.google.com': googleToken,
-      },
-    });
-    s3GetObject(AWS.config, objectKey);
+    setCredential(googleToken);
+    s3GetObject(objectKey);
   }
 }
 
-function s3ListObjectsV2(aws_config, sub) {
-  AWS.config = aws_config;
-  var prefix = sub + "/"
+function s3ListObjectsV2(token) {
+  let attributes = parseJWT(token);
+  let prefix = attributes.sub + "/"
 
-  // Use S3 listObjectsV2
-  var s3 = new AWS.S3({apiVersion: '2006-03-01'});
-  var params = {
+  const s3 = new AWS.S3({apiVersion: '2006-03-01'});
+  let params = {
     Bucket: BUCKET_NAME,
     Prefix: prefix,
   };
   s3.listObjectsV2(params, function(err,data) {
-    if (err) {
-      alert("There was an error listing your files: ", err.message);
-      console.log(err);
-      return;
-    }
+    if (err) return alert("There was an error listing your files: ", err.message);
+
     var objectsHTML = data.Contents.map(function(content,idx,source) {
       return `<li>${content.Key}<button onclick="download('${content.Key}')">download</button></li>`;
     });
@@ -148,9 +63,7 @@ function s3ListObjectsV2(aws_config, sub) {
   });
 }
 
-function s3GetObject(aws_config, objectKey) {
-  AWS.config = aws_config;
-
+function s3GetObject(objectKey) {
   var s3 = new AWS.S3({apiVersion: '2006-03-01', signatureVersion: 'v4'});
   var params = {
     Bucket: BUCKET_NAME,

@@ -1,12 +1,4 @@
 
-function create_userPool() {
-  let userPool = new AmazonCognitoIdentity.CognitoUserPool({
-    UserPoolId: "us-east-1_nQcxl44OP",
-    ClientId: "68trdifrt2803vh285kb22rl0t"
-  });
-  return userPool;
-};
-
 function signUp() {
   let userPool = create_userPool();
   let username = document.getElementById('username').value;
